@@ -1,0 +1,83 @@
+# Dashboard Page Modularization Template
+
+This template provides a guide for modularizing dashboard pages using a component-based architecture.
+
+## Folder Structure
+
+For each dashboard page (e.g., `contacts`), create the following structure:
+
+```
+src/app/dashboard/[page-name]/
+  ├── components/
+  │   ├── index.ts                # Exports all components
+  │   ├── [feature]-list.tsx      # List component for displaying data
+  │   ├── [feature]-form.tsx      # Form component for creating/editing data
+  │   ├── [feature]-details.tsx   # Details component for viewing data
+  │   └── ...                     # Other feature-specific components
+  └── page.tsx                    # Main page component that uses the components
+```
+
+## Component Types
+
+1. **List Components**: Display data in tables or grids
+   - Include sorting, filtering, pagination
+   - Handle row actions (edit, delete, etc.)
+
+2. **Form Components**: Create or edit data
+   - Form validation
+   - Submit handlers
+   - Cancel/close handlers
+
+3. **Detail Components**: Display detailed information about a single item
+   - Sections for different aspects of the data
+   - Actions related to the item
+
+4. **Filter Components**: Filter and search data
+   - Search inputs
+   - Filter dropdowns/checkboxes
+   - Date range pickers
+
+5. **Stat Components**: Display statistics and metrics
+   - Cards with numbers, charts, etc.
+   - Trend indicators
+
+## Shared Components
+
+Use the shared dashboard components from `src/app/dashboard/components/`:
+
+- `PageHeader`: Page title and actions
+- `DashboardCard`: Card component for dashboard items
+- `DataTable`: Reusable table with sorting, filtering, pagination
+- `StatsGrid`: Grid of stat cards
+- `ActionButtons`: Grid of action buttons
+- `EmptyState`: Display when no data is available
+- `LoadingState`: Display while data is loading
+- `FilterBar`: Search and filter controls
+
+## State Management
+
+1. Keep page-level state in the page component:
+   - Active tab/view
+   - Selected items
+   - Dialog open/close state
+   - Current page of pagination
+
+2. Keep component-level state in the components:
+   - Form input values
+   - Validation errors
+   - UI interactions specific to the component
+
+## Data Flow
+
+1. Fetch data in the page component
+2. Pass data to components as props
+3. Handle actions via callbacks passed to components
+4. Update state in the page component based on component actions
+
+## Example Implementation
+
+See the contacts page for a complete implementation example:
+- `src/app/dashboard/contacts/components/`
+- `src/app/dashboard/contacts/page.tsx`
+
+Follow this pattern for all dashboard pages to ensure consistency and maintainability. 

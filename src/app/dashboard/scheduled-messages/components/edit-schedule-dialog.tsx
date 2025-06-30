@@ -1,5 +1,6 @@
 "use client"
-import { useState, useEffect } from "react"
+
+import React, { useState, useEffect } from "react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -13,137 +14,187 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Edit3, Clock, User, MessageCircle } from "lucide-react"
-
-interface ScheduledMessage {
-  id: string
-  recipient: string
-  messageSnippet: string // Or full message if needed for editing
-  scheduledTime: string // ISO format for datetime-local e.g., "2025-06-25T10:30"
-  status: string
-}
+import { Edit3, Clock, MessageCircle } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { ScheduledMessage } from "./scheduled-message-list"
 
 interface EditScheduleDialogProps {
-  messageData: ScheduledMessage | null
-  isOpen: boolean
+  message: ScheduledMessage | null
+  open: boolean
   onOpenChange: (open: boolean) => void
-  onSave?: (data: ScheduledMessage) => void // Placeholder
+  onSave: (updatedMessage: ScheduledMessage) => void
+  recipientGroups?: { id: string; name: string }[]
 }
 
-export function EditScheduleDialog({ messageData, isOpen, onOpenChange, onSave }: EditScheduleDialogProps) {
-  const [recipient, setRecipient] = useState("")
-  const [message, setMessage] = useState("")
-  const [scheduleTime, setScheduleTime] = useState("")
-  const [isSaving, setIsSaving] = useState(false)
+export function EditScheduleDialog({
+  message,
+  open,
+  onOpenChange,
+  onSave,
+  recipientGroups = [],
+}: EditScheduleDialogProps) {
+  const [formData, setFormData] = useState<ScheduledMessage | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
-    if (messageData) {
-      setRecipient(messageData.recipient)
-      setMessage(messageData.messageSnippet) // Assuming this is the full message for editing
-      // Convert display time to datetime-local format if necessary
-      // For simplicity, assuming messageData.scheduledTime is already in a compatible format or needs conversion
-      // This is a common point of complexity with date/time formats.
-      // Example: if messageData.scheduledTime is "2025-06-23 10:00 AM", it needs conversion.
-      // For now, let's assume it's somewhat compatible or we use it as is.
-      // A robust solution would use a date library like date-fns to parse and format.
-      try {
-        const date = new Date(messageData.scheduledTime) // Attempt to parse
-        if (!isNaN(date.getTime())) {
-          // Format to YYYY-MM-DDTHH:mm
-          const year = date.getFullYear()
-          const month = (date.getMonth() + 1).toString().padStart(2, "0")
-          const day = date.getDate().toString().padStart(2, "0")
-          const hours = date.getHours().toString().padStart(2, "0")
-          const minutes = date.getMinutes().toString().padStart(2, "0")
-          setScheduleTime(`${year}-${month}-${day}T${hours}:${minutes}`)
-        } else {
-          setScheduleTime(messageData.scheduledTime) // Fallback if parsing fails
-        }
-      } catch (e) {
-        setScheduleTime(messageData.scheduledTime) // Fallback
-      }
+    if (message) {
+      setFormData({ ...message })
     }
-  }, [messageData])
+  }, [message, open])
 
-  const handleSubmit = async () => {
-    if (!recipient || !message || !scheduleTime || !messageData) {
-      alert("Please fill all fields.") // Simple validation
-      return
-    }
-    setIsSaving(true)
-    // --- Placeholder for actual save logic ---
-    const updatedMessage = { ...messageData, recipient, messageSnippet: message, scheduledTime }
-    console.log("Saving edited message:", updatedMessage)
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    onSave?.(updatedMessage as ScheduledMessage) // Callback if provided
-    // --- End of placeholder ---
-    setIsSaving(false)
-    onOpenChange(false) // Close dialog on success
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    if (!formData) return
+    
+    const { id, value } = e.target
+    setFormData({ ...formData, [id]: value })
   }
 
-  if (!messageData) return null
+  const handleSelectChange = (field: string, value: string | null) => {
+    if (!formData) return
+    setFormData({ ...formData, [field]: value })
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!formData) return
+    
+    // Simple validation
+    if (!formData.subject || !formData.message || !formData.scheduledFor) {
+      alert("Please fill all required fields.")
+      return
+    }
+    
+    setIsSubmitting(true)
+    
+    try {
+      onSave(formData)
+      onOpenChange(false)
+    } catch (error) {
+      console.error("Error updating message:", error)
+      alert("Failed to update message. Please try again.")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  if (!formData) return null
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg rounded-xl">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle className="flex items-center text-brandDarkBlue">
+          <DialogTitle className="flex items-center">
             <Edit3 className="mr-2 h-6 w-6" /> Edit Scheduled Message
           </DialogTitle>
-          <DialogDescription>Modify the details of your scheduled message.</DialogDescription>
+          <DialogDescription>
+            Modify the details of your scheduled message.
+          </DialogDescription>
         </DialogHeader>
+        <form onSubmit={handleSubmit}>
         <div className="grid gap-6 py-4">
           <div className="space-y-2">
-            <Label htmlFor="edit-recipient" className="text-gray-700 flex items-center">
-              <User className="mr-2 h-4 w-4 text-gray-500" /> Recipient Number
-            </Label>
+              <Label htmlFor="subject">Subject</Label>
             <Input
-              id="edit-recipient"
-              value={recipient}
-              onChange={(e) => setRecipient(e.target.value)}
-              className="focus:ring-brandDarkBlue focus:border-brandDarkBlue"
+                id="subject"
+                value={formData.subject}
+                onChange={handleChange}
+                required
             />
           </div>
+            
           <div className="space-y-2">
-            <Label htmlFor="edit-message" className="text-gray-700 flex items-center">
+              <Label htmlFor="message" className="flex items-center">
               <MessageCircle className="mr-2 h-4 w-4 text-gray-500" /> Message
             </Label>
             <Textarea
-              id="edit-message"
+                id="message"
               rows={4}
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              className="focus:ring-brandDarkBlue focus:border-brandDarkBlue"
+                value={formData.message}
+                onChange={handleChange}
+                required
             />
           </div>
+            
+            <div className="space-y-2">
+              <Label>Recipients</Label>
+              <div className="text-sm bg-muted p-2 rounded-md">
+                {formData.recipients.join(", ")}
+                <div className="text-xs text-muted-foreground mt-1">
+                  {formData.recipientCount} recipients
+                </div>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="edit-schedule-time" className="text-gray-700 flex items-center">
+                <Label htmlFor="scheduledFor" className="flex items-center">
               <Clock className="mr-2 h-4 w-4 text-gray-500" /> Schedule Date & Time
             </Label>
             <Input
-              id="edit-schedule-time"
+                  id="scheduledFor"
               type="datetime-local"
-              value={scheduleTime}
-              onChange={(e) => setScheduleTime(e.target.value)}
-              className="focus:ring-brandDarkBlue focus:border-brandDarkBlue"
-            />
+                  value={formatDateForInput(formData.scheduledFor)}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="recurring">Recurring</Label>
+                <Select
+                  value={formData.recurring || "none"}
+                  onValueChange={(value) => 
+                    handleSelectChange("recurring", value === "none" ? null : value)
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Not recurring" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Not recurring</SelectItem>
+                    <SelectItem value="daily">Daily</SelectItem>
+                    <SelectItem value="weekly">Weekly</SelectItem>
+                    <SelectItem value="monthly">Monthly</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
           </div>
         </div>
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="hover:bg-slate-100">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button
-            type="button"
-            onClick={handleSubmit}
-            className="bg-brandDarkBlue text-white hover:bg-opacity-90"
-            disabled={isSaving}
-          >
-            {isSaving ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div> : null}
-            {isSaving ? "Saving..." : "Save Changes"}
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+              ) : null}
+              {isSubmitting ? "Saving..." : "Save Changes"}
           </Button>
         </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   )
+}
+
+// Helper function to format date for datetime-local input
+function formatDateForInput(dateString: string): string {
+  try {
+    const date = new Date(dateString)
+    if (isNaN(date.getTime())) return ""
+    
+    // Format to YYYY-MM-DDTHH:mm
+    const year = date.getFullYear()
+    const month = (date.getMonth() + 1).toString().padStart(2, "0")
+    const day = date.getDate().toString().padStart(2, "0")
+    const hours = date.getHours().toString().padStart(2, "0")
+    const minutes = date.getMinutes().toString().padStart(2, "0")
+    
+    return `${year}-${month}-${day}T${hours}:${minutes}`
+  } catch (e) {
+    return ""
+  }
 }

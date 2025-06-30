@@ -1,4 +1,19 @@
-#2C3930
-#3F4F44
-#A27B5C
-#DCD7C9
+GoWAG Color Palette
+
+Light Theme:
+- Primary: #7C9473 (Green)
+- Secondary: #CFDAC8 (Light Green)
+- Background: #E8EAE6 (Off-White)
+- Muted: #CDD0CB (Light Gray)
+
+Dark Theme:
+- Primary: #092635 (Dark Blue)
+- Secondary: #1B4242 (Dark Teal)
+- Accent: #5C8374 (Medium Green)
+- Text: #9EC8B9 (Light Teal)
+
+Usage:
+- Light theme uses earthy green tones for a natural, calming interface
+- Dark theme uses deep blue-green tones for a professional, modern look
+- Both themes maintain high contrast for readability
+- Accent colors are used for interactive elements and highlights

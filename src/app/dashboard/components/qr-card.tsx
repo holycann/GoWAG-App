@@ -8,13 +8,15 @@ import { QrCode, CheckCircle2, XCircle, Loader2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import WhatsAppService, { WhatsAppSession } from "@/services/whatsapp-service"
+import { cn } from "@/lib/utils"
 
 interface QRCardProps {
   onCreateSession?: (name: string) => Promise<WhatsAppSession | null>
   onConnectSuccess?: (session: WhatsAppSession) => void
+  className?: string
 }
 
-export function QRCard({ onCreateSession, onConnectSuccess }: QRCardProps) {
+export function QRCard({ onCreateSession, onConnectSuccess, className }: QRCardProps) {
   const [sessionName, setSessionName] = useState("My WhatsApp")
   const [activeSession, setActiveSession] = useState<WhatsAppSession | null>(null)
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null)
@@ -116,9 +118,12 @@ export function QRCard({ onCreateSession, onConnectSuccess }: QRCardProps) {
   const isConnected = activeSession?.status === 'connected';
 
   return (
-    <Card className="rounded-xl shadow-md">
-      <CardHeader>
-        <CardTitle className="flex items-center text-gray-700">
+    <Card className={cn("rounded-xl overflow-hidden", className)}>
+      <CardHeader className={cn(
+        "border-b",
+        isConnected ? "bg-green-50 dark:bg-green-950/20" : "bg-red-50 dark:bg-red-950/20"
+      )}>
+        <CardTitle className="flex items-center">
           {isConnected ? (
             <CheckCircle2 className="h-6 w-6 text-green-500 mr-2" />
           ) : (
@@ -130,15 +135,17 @@ export function QRCard({ onCreateSession, onConnectSuccess }: QRCardProps) {
           {isConnected ? "Your device is connected and online." : "Your device is currently offline."}
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col items-center space-y-4 min-h-[280px] justify-center">
+      <CardContent className="flex flex-col items-center space-y-4 min-h-[280px] justify-center p-6">
         {isConnected ? (
           <>
-            <CheckCircle2 className="h-16 w-16 text-green-500 mb-2" />
-            <p className="text-lg font-semibold text-green-600">{activeSession?.name || "Device"} Online</p>
+            <div className="h-16 w-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mb-2">
+              <CheckCircle2 className="h-8 w-8 text-green-500" />
+            </div>
+            <p className="text-lg font-semibold text-green-600 dark:text-green-400">{activeSession?.name || "Device"} Online</p>
             <Button
               onClick={handleDisconnect}
               variant="outline"
-              className="bg-red-500 text-white hover:bg-red-600 w-full"
+              className="bg-red-500 text-white hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700 w-full"
               disabled={isConnecting}
             >
               {isConnecting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
@@ -148,19 +155,21 @@ export function QRCard({ onCreateSession, onConnectSuccess }: QRCardProps) {
         ) : (
           <>
             {qrCodeUrl ? (
-              <div className="flex flex-col items-center space-y-2">
-                <Image
-                  src={`data:image/png;base64,${qrCodeUrl}`}
-                  alt="QR Code"
-                  width={200}
-                  height={200}
-                  className="rounded-lg border"
-                />
+              <div className="flex flex-col items-center space-y-4">
+                <div className="p-3 bg-white rounded-lg shadow-md">
+                  <Image
+                    src={`data:image/png;base64,${qrCodeUrl}`}
+                    alt="QR Code"
+                    width={200}
+                    height={200}
+                    className="rounded-md"
+                  />
+                </div>
                 <p className="text-sm text-muted-foreground text-center">Scan this QR code with your WhatsApp.</p>
                 <Button
                   onClick={handleCancelConnect}
                   variant="outline"
-                  className="bg-gray-200 text-gray-700 hover:bg-gray-300 w-full"
+                  className="border-red-200 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/20 w-full"
                 >
                   Cancel
                 </Button>
@@ -175,11 +184,12 @@ export function QRCard({ onCreateSession, onConnectSuccess }: QRCardProps) {
                     onChange={(e) => setSessionName(e.target.value)}
                     placeholder="My WhatsApp" 
                     disabled={isConnecting}
+                    className="border-primary/20 focus-visible:ring-primary"
                   />
                 </div>
                 <Button
                   onClick={handleConnect}
-                  className="bg-brandDarkBlue text-white hover:bg-opacity-90 w-full"
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 w-full"
                   disabled={isConnecting || !sessionName.trim()}
                 >
                   {isConnecting ? (

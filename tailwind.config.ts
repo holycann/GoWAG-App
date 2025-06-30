@@ -53,6 +53,20 @@ const config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        // Custom colors for light theme
+        light: {
+          primary: "#7C9473",
+          secondary: "#CFDAC8",
+          background: "#E8EAE6",
+          muted: "#CDD0CB",
+        },
+        // Custom colors for dark theme
+        dark: {
+          primary: "#092635",
+          secondary: "#1B4242",
+          accent: "#5C8374",
+          text: "#9EC8B9",
+        },
         // Custom color for WA Gateway
         brandDarkBlue: "#301E67",
         // Sidebar specific colors based on brandDarkBlue

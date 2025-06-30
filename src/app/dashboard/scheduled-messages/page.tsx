@@ -1,103 +1,240 @@
 "use client"
-import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import React from "react"
 import { Button } from "@/components/ui/button"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
-import { Edit3, Trash2, MoreHorizontal, Clock, Users, MessageCircle, ShieldAlert } from "lucide-react"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { ScheduleMessageDialog } from "./components/schedule-message-dialog"
-import { EditScheduleDialog } from "./components/edit-schedule-dialog" // Import Edit Dialog
+import { Plus } from "lucide-react"
 import { PageAlert } from "../components/page-alert"
+import { PageHeader } from "../components/page-header"
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog" // AlertDialogTrigger is not needed if controlled manually
+  ScheduledMessageList,
+  ScheduledStats,
+  ScheduleMessageDialog,
+  EditScheduleDialog,
+  DeleteMessageDialog,
+  ScheduledMessage,
+  ScheduleMessageFormData
+} from "./components"
 
-interface ScheduledMessage {
-  id: string
-  recipient: string
-  messageSnippet: string
-  scheduledTime: string
-  status: string
-}
+// Sample contact groups for recipient selection
+const recipientGroups = [
+  { id: "group_1", name: "All Customers" },
+  { id: "group_2", name: "VIP Customers" },
+  { id: "group_3", name: "New Leads" },
+  { id: "group_4", name: "Newsletter Subscribers" },
+  { id: "group_5", name: "Invoice Clients" },
+];
 
 const initialScheduledMessagesData: ScheduledMessage[] = [
   {
-    id: "sm1",
-    recipient: "+12345678901",
-    messageSnippet: "Team meeting reminder for tomorrow...",
-    scheduledTime: "2025-06-23 10:00 AM",
-    status: "Scheduled",
+    id: "sched_1",
+    subject: "Morning Greeting",
+    message: "Good morning! Hope you have a great day ahead. Here's your daily update.",
+    recipients: ["All Customers", "VIP Customers"],
+    recipientCount: 60,
+    scheduledFor: "2023-07-10T08:00:00",
+    status: "scheduled",
+    recurring: "daily",
+    lastSent: null,
+    createdAt: "2023-06-25T10:30:00",
   },
   {
-    id: "sm2",
-    recipient: "Marketing Group",
-    messageSnippet: "New campaign launch next week!",
-    scheduledTime: "2025-06-28 09:00 AM",
-    status: "Scheduled",
+    id: "sched_2",
+    subject: "Weekend Special Offer",
+    message: "Don't miss our special weekend offer! Get 20% off on all products this weekend only.",
+    recipients: ["All Customers"],
+    recipientCount: 48,
+    scheduledFor: "2023-07-08T10:00:00",
+    status: "scheduled",
+    recurring: "weekly",
+    lastSent: "2023-07-01T10:00:00",
+    createdAt: "2023-06-15T15:45:00",
   },
-  // ... more data
+  {
+    id: "sched_3",
+    subject: "Monthly Newsletter",
+    message: "Here's your monthly newsletter with all the latest updates and tips from our team.",
+    recipients: ["Newsletter Subscribers"],
+    recipientCount: 156,
+    scheduledFor: "2023-08-01T14:00:00",
+    status: "scheduled",
+    recurring: "monthly",
+    lastSent: "2023-07-01T14:00:00",
+    createdAt: "2023-05-28T11:20:00",
+  },
+  {
+    id: "sched_4",
+    subject: "Payment Reminder",
+    message: "This is a friendly reminder that your invoice is due in 3 days. Please make the payment at your earliest convenience.",
+    recipients: ["Invoice Clients"],
+    recipientCount: 15,
+    scheduledFor: "2023-07-07T09:00:00",
+    status: "paused",
+    recurring: "monthly",
+    lastSent: "2023-06-07T09:00:00",
+    createdAt: "2023-04-10T16:30:00",
+  },
+  {
+    id: "sched_5",
+    subject: "Service Maintenance",
+    message: "We will be performing maintenance on our systems tomorrow from 2-4AM. Service might be intermittent during this time.",
+    recipients: ["All Customers"],
+    recipientCount: 48,
+    scheduledFor: "2023-07-05T18:00:00",
+    status: "sent",
+    recurring: null,
+    lastSent: "2023-07-05T18:00:00",
+    createdAt: "2023-07-03T09:15:00",
+  },
 ]
 
 export default function ScheduledMessagesPage() {
-  const [scheduledMessages, setScheduledMessages] = useState<ScheduledMessage[]>(initialScheduledMessagesData)
-  const [alertInfo, setAlertInfo] = useState<{ type: "success" | "error"; title: string; message: string } | null>(null)
-  const [messageToEdit, setMessageToEdit] = useState<ScheduledMessage | null>(null)
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
-  const [messageToDelete, setMessageToDelete] = useState<ScheduledMessage | null>(null)
+  const [scheduledMessages, setScheduledMessages] = React.useState<ScheduledMessage[]>(initialScheduledMessagesData)
+  const [alertInfo, setAlertInfo] = React.useState<{ type: "success" | "error"; title: string; message: string } | null>(null)
+  const [scheduleDialogOpen, setScheduleDialogOpen] = React.useState(false)
+  const [editDialogOpen, setEditDialogOpen] = React.useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
+  const [selectedMessage, setSelectedMessage] = React.useState<ScheduledMessage | null>(null)
 
-  const handleNewMessageScheduled = (data: { recipient: string; message: string; scheduleTime: string }) => {
+  const handleNewMessageScheduled = async (data: ScheduleMessageFormData) => {
+    // Create a new message from the form data
     const newMessage: ScheduledMessage = {
-      id: `sm${Date.now()}`, // Simple unique ID
-      recipient: data.recipient,
-      messageSnippet: data.message.substring(0, 50) + (data.message.length > 50 ? "..." : ""),
-      scheduledTime: new Date(data.scheduleTime).toLocaleString(), // Format for display
-      status: "Scheduled",
-    }
-    setScheduledMessages((prev) => [newMessage, ...prev])
-    setAlertInfo({ type: "success", title: "Scheduled!", message: "New message has been scheduled successfully." })
-    setTimeout(() => setAlertInfo(null), 3000)
-  }
+      id: `sched_${Date.now()}`,
+      subject: data.subject,
+      message: data.message,
+      recipients: data.recipientGroup 
+        ? [recipientGroups.find(g => g.id === data.recipientGroup)?.name || "Unknown Group"] 
+        : [data.recipient],
+      recipientCount: data.recipientGroup ? 
+        (data.recipientGroup === "group_1" ? 48 : 
+         data.recipientGroup === "group_2" ? 12 : 
+         data.recipientGroup === "group_3" ? 31 : 
+         data.recipientGroup === "group_4" ? 156 : 15) : 1,
+      scheduledFor: data.scheduleTime,
+      status: "scheduled",
+      recurring: data.recurring || null,
+      lastSent: null,
+      createdAt: new Date().toISOString(),
+    };
+    
+    // Add the new message to the list
+    setScheduledMessages((prev) => [newMessage, ...prev]);
+    
+    // Show success alert
+    setAlertInfo({
+      type: "success",
+      title: "Scheduled!",
+      message: "New message has been scheduled successfully.",
+    });
+    
+    // Clear alert after 3 seconds
+    setTimeout(() => setAlertInfo(null), 3000);
+  };
 
   const handleEditMessage = (message: ScheduledMessage) => {
-    setMessageToEdit(message)
-    setIsEditDialogOpen(true)
-  }
+    setSelectedMessage(message);
+    setEditDialogOpen(true);
+  };
 
   const handleSaveEditedMessage = (updatedMessage: ScheduledMessage) => {
     setScheduledMessages((prev) =>
-      prev.map((msg) =>
-        msg.id === updatedMessage.id
-          ? { ...updatedMessage, scheduledTime: new Date(updatedMessage.scheduledTime).toLocaleString() }
-          : msg,
-      ),
-    )
-    setAlertInfo({ type: "success", title: "Updated!", message: "Scheduled message updated successfully." })
-    setTimeout(() => setAlertInfo(null), 3000)
-  }
+      prev.map((msg) => (msg.id === updatedMessage.id ? updatedMessage : msg))
+    );
+    
+    setAlertInfo({
+      type: "success",
+      title: "Updated!",
+      message: "Scheduled message updated successfully.",
+    });
+    
+    setTimeout(() => setAlertInfo(null), 3000);
+  };
 
   const handleDeleteMessage = async () => {
-    if (!messageToDelete) return
+    if (!selectedMessage) return;
+    
+    // Remove the message from the list
+    setScheduledMessages((prev) => prev.filter((msg) => msg.id !== selectedMessage.id));
+    
+    // Show success alert
+    setAlertInfo({
+      type: "success",
+      title: "Deleted!",
+      message: `Message to ${selectedMessage.recipients.join(", ")} deleted.`,
+    });
+    
+    // Clear alert after 3 seconds
+    setTimeout(() => setAlertInfo(null), 3000);
+  };
 
-    // --- Placeholder for actual delete logic ---
-    console.log("Deleting message:", messageToDelete.id)
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    setScheduledMessages((prev) => prev.filter((msg) => msg.id !== messageToDelete.id))
-    setAlertInfo({ type: "success", title: "Deleted!", message: `Message to ${messageToDelete.recipient} deleted.` })
-    // --- End of placeholder ---
-    setMessageToDelete(null) // Close dialog
-    setTimeout(() => setAlertInfo(null), 3000)
-  }
+  const handlePauseMessage = (message: ScheduledMessage) => {
+    setScheduledMessages((prev) =>
+      prev.map((msg) => (msg.id === message.id ? { ...msg, status: "paused" } : msg))
+    );
+    
+    setAlertInfo({
+      type: "success",
+      title: "Paused",
+      message: "Message has been paused.",
+    });
+    
+    setTimeout(() => setAlertInfo(null), 3000);
+  };
+
+  const handleResumeMessage = (message: ScheduledMessage) => {
+    setScheduledMessages((prev) =>
+      prev.map((msg) => (msg.id === message.id ? { ...msg, status: "scheduled" } : msg))
+    );
+    
+    setAlertInfo({
+      type: "success",
+      title: "Resumed",
+      message: "Message has been resumed.",
+    });
+    
+    setTimeout(() => setAlertInfo(null), 3000);
+  };
+
+  const handleDuplicateMessage = (message: ScheduledMessage) => {
+    const duplicatedMessage: ScheduledMessage = {
+      ...message,
+      id: `sched_${Date.now()}`,
+      subject: `${message.subject} (Copy)`,
+      createdAt: new Date().toISOString(),
+      lastSent: null,
+    };
+    
+    setScheduledMessages((prev) => [duplicatedMessage, ...prev]);
+    
+    setAlertInfo({
+      type: "success",
+      title: "Duplicated",
+      message: "Message has been duplicated.",
+    });
+    
+    setTimeout(() => setAlertInfo(null), 3000);
+  };
+
+  const handleOpenDeleteDialog = (message: ScheduledMessage) => {
+    setSelectedMessage(message);
+    setDeleteDialogOpen(true);
+  };
+
+  // Calculate stats
+  const activeCount = scheduledMessages.filter(msg => msg.status === "scheduled").length;
+  const pausedCount = scheduledMessages.filter(msg => msg.status === "paused").length;
+  const sentCount = scheduledMessages.filter(msg => msg.status === "sent").length;
+  const totalCount = scheduledMessages.length;
+
+  // Get upcoming messages (scheduled for the next 24 hours)
+  const now = new Date();
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  
+  const upcomingMessages = scheduledMessages
+    .filter(msg => msg.status === "scheduled" && new Date(msg.scheduledFor) <= tomorrow)
+    .sort((a, b) => new Date(a.scheduledFor).getTime() - new Date(b.scheduledFor).getTime());
 
   return (
-    <div className="flex-1 space-y-6 p-4 md:p-6 lg:p-8 animate-fadeIn">
+    <div className="container mx-auto p-6">
       {alertInfo && (
         <PageAlert
           type={alertInfo.type}
@@ -106,140 +243,60 @@ export default function ScheduledMessagesPage() {
           onClose={() => setAlertInfo(null)}
         />
       )}
-      <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold text-brandDarkBlue">Scheduled Messages</h1>
-          <p className="text-muted-foreground">Manage your upcoming and past scheduled messages.</p>
-        </div>
-        <ScheduleMessageDialog onSchedule={handleNewMessageScheduled} />
-      </header>
-
-      <Card className="rounded-xl shadow-md animate-slideUp">
-        <CardHeader>
-          <CardTitle className="text-gray-700">Message Queue</CardTitle>
-          <CardDescription>
-            {scheduledMessages.length > 0
-              ? `You have ${scheduledMessages.filter((m) => m.status === "Scheduled" || m.status === "Pending").length} pending messages.`
-              : "No messages currently scheduled."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {scheduledMessages.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[200px] text-gray-600">
-                    <Users className="inline-block mr-1 h-4 w-4" />
-                    Recipient
-                  </TableHead>
-                  <TableHead className="text-gray-600">
-                    <MessageCircle className="inline-block mr-1 h-4 w-4" />
-                    Message Snippet
-                  </TableHead>
-                  <TableHead className="w-[180px] text-gray-600">
-                    <Clock className="inline-block mr-1 h-4 w-4" />
-                    Scheduled Time
-                  </TableHead>
-                  <TableHead className="w-[120px] text-gray-600">Status</TableHead>
-                  <TableHead className="w-[100px] text-right text-gray-600">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {scheduledMessages.map((msg) => (
-                  <TableRow key={msg.id} className="hover:bg-slate-50 transition-colors duration-150">
-                    <TableCell className="font-medium text-gray-800">{msg.recipient}</TableCell>
-                    <TableCell className="text-muted-foreground truncate max-w-xs">{msg.messageSnippet}</TableCell>
-                    <TableCell className="text-muted-foreground">{msg.scheduledTime}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          msg.status === "Scheduled"
-                            ? "default"
-                            : msg.status === "Sent"
-                              ? "secondary"
-                              : msg.status === "Pending"
-                                ? "outline"
-                                : "destructive"
-                        }
-                        className={
-                          msg.status === "Scheduled"
-                            ? "bg-blue-100 text-blue-700 border-blue-300"
-                            : msg.status === "Sent"
-                              ? "bg-green-100 text-green-700 border-green-300"
-                              : msg.status === "Pending"
-                                ? "bg-yellow-100 text-yellow-700 border-yellow-300"
-                                : ""
-                        }
-                      >
-                        {msg.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-brandDarkBlue"
-                          >
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem className="group" onClick={() => handleEditMessage(msg)}>
-                            <Edit3 className="mr-2 h-4 w-4 text-blue-500 group-hover:scale-110 transition-transform" />{" "}
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="text-red-600 group" onClick={() => setMessageToDelete(msg)}>
-                            <Trash2 className="mr-2 h-4 w-4 text-red-500 group-hover:scale-110 transition-transform" />{" "}
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          ) : (
-            <div className="text-center py-10">
-              <Clock className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-              <p className="text-muted-foreground">You haven't scheduled any messages yet.</p>
-              {/* Trigger for ScheduleMessageDialog can be placed here too */}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {messageToEdit && (
-        <EditScheduleDialog
-          messageData={messageToEdit}
-          isOpen={isEditDialogOpen}
-          onOpenChange={setIsEditDialogOpen}
-          onSave={handleSaveEditedMessage}
+      
+      <div className="flex items-center justify-between mb-6">
+        <PageHeader
+          title="Scheduled Messages"
+          description="Set up and manage scheduled messages and reminders"
         />
-      )}
-
-      {messageToDelete && (
-        <AlertDialog open={!!messageToDelete} onOpenChange={(isOpen) => !isOpen && setMessageToDelete(null)}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle className="flex items-center">
-                <ShieldAlert className="mr-2 h-5 w-5 text-red-500" /> Confirm Deletion
-              </AlertDialogTitle>
-              <AlertDialogDescription>
-                Are you sure you want to delete the scheduled message to "<strong>{messageToDelete.recipient}</strong>"?
-                This action cannot be undone.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => setMessageToDelete(null)}>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleDeleteMessage} className="bg-red-600 hover:bg-red-700 text-white">
-                Delete Message
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        <Button onClick={() => setScheduleDialogOpen(true)}>
+          <Plus className="mr-2 h-4 w-4" /> Schedule Message
+        </Button>
+      </div>
+      
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <ScheduledStats
+          activeCount={activeCount}
+          pausedCount={pausedCount}
+          sentCount={sentCount}
+          totalCount={totalCount}
+          upcomingMessages={upcomingMessages}
+        />
+      </div>
+      
+      <ScheduledMessageList
+        messages={scheduledMessages}
+        onEdit={handleEditMessage}
+        onDelete={handleOpenDeleteDialog}
+        onPause={handlePauseMessage}
+        onResume={handleResumeMessage}
+        onDuplicate={handleDuplicateMessage}
+      />
+      
+      <ScheduleMessageDialog
+        open={scheduleDialogOpen}
+        onOpenChange={setScheduleDialogOpen}
+        onSchedule={handleNewMessageScheduled}
+        recipientGroups={recipientGroups}
+      />
+      
+      {selectedMessage && (
+        <>
+          <EditScheduleDialog
+            open={editDialogOpen}
+            onOpenChange={setEditDialogOpen}
+            message={selectedMessage}
+            onSave={handleSaveEditedMessage}
+            recipientGroups={recipientGroups}
+          />
+          
+          <DeleteMessageDialog
+            open={deleteDialogOpen}
+            onOpenChange={setDeleteDialogOpen}
+            message={selectedMessage}
+            onDelete={handleDeleteMessage}
+          />
+        </>
       )}
     </div>
   )

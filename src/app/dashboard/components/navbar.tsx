@@ -1,5 +1,5 @@
 "use client"
-import { LogOut, Menu, ShieldAlert } from "lucide-react"
+import { LogOut, Menu, ShieldAlert, Bell, Search } from "lucide-react"
 import { useRouter } from "next/navigation" // For App Router
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -26,6 +26,9 @@ import {
 import { useState } from "react"
 import { PageAlert } from "./page-alert"
 import { useAuth } from "@/context/auth-context"
+import { ThemeToggle } from "@/components/ui/theme-toggle"
+import { Input } from "@/components/ui/input"
+import { cn } from "@/lib/utils"
 
 export function Navbar() {
   const router = useRouter()
@@ -47,7 +50,7 @@ export function Navbar() {
   // Get user initials for avatar fallback
   const getUserInitials = () => {
     if (!user?.username) return 'U';
-    return user.username
+    return user.username.charAt(0).toUpperCase();
   };
 
   return (
@@ -60,37 +63,60 @@ export function Navbar() {
           onClose={() => setAlertInfo(null)}
         />
       )}
-      <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background px-4 sm:px-6">
+      <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-md px-4 sm:px-6 shadow-sm">
         <SidebarTrigger className="md:hidden">
-          <Menu className="h-6 w-6" />
+          <Menu className="h-5 w-5" />
           <span className="sr-only">Toggle Sidebar</span>
         </SidebarTrigger>
 
         <div className="flex items-center gap-2">
-          <h1 className="text-xl font-semibold text-brandDarkBlue">WA Gateway</h1>
+          <h1 className="text-lg font-semibold text-primary">GoWAG</h1>
+          <div className="hidden md:flex items-center h-6 px-2 text-xs font-medium rounded-full bg-primary/10 text-primary">
+            WhatsApp Gateway
+          </div>
         </div>
 
-        <div className="ml-auto flex items-center gap-4">
+        <div className="hidden md:flex relative max-w-md flex-1 mx-4">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="search"
+            placeholder="Search..."
+            className="pl-8 bg-background/50 border-muted focus-visible:ring-primary h-9 rounded-full"
+          />
+        </div>
+
+        <div className="ml-auto flex items-center gap-3">
+          <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 relative">
+            <Bell className="h-5 w-5" />
+            <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-primary animate-pulse" />
+            <span className="sr-only">Notifications</span>
+          </Button>
+
+          <ThemeToggle />
+          
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                <Avatar className="h-9 w-9">
-                  <AvatarImage src={user?.photoURL || "/placeholder-user.jpg"} alt={user?.displayName || "User"} />
-                  <AvatarFallback>{getUserInitials()}</AvatarFallback>
+              <Button variant="ghost" className="relative h-9 w-9 rounded-full hover:bg-primary/10 p-0">
+                <Avatar className="h-9 w-9 border border-primary/20">
+                  <AvatarImage src={user?.profilePicture || "/placeholder-user.jpg"} alt={user?.username || "User"} />
+                  <AvatarFallback className="bg-primary/10 text-primary text-sm">{getUserInitials()}</AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56" align="end" forceMount>
+            <DropdownMenuContent className="w-56 mt-1" align="end" forceMount>
               <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium leading-none">{user?.displayName || "User"}</p>
+                  <p className="text-sm font-medium leading-none">{user?.username || "User"}</p>
                   <p className="text-xs leading-none text-muted-foreground">{user?.email}</p>
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={() => router.push('/dashboard/settings')}>
+                Account settings
+              </DropdownMenuItem>
               <AlertDialog open={showLogoutConfirm} onOpenChange={setShowLogoutConfirm}>
                 <AlertDialogTrigger asChild>
-                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                  <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20">
                     <LogOut className="mr-2 h-4 w-4" />
                     <span>Log out</span>
                   </DropdownMenuItem>

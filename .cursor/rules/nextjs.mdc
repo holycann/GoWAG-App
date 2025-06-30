@@ -1,0 +1,235 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+This document outlines the official development rules, project structure, and architectural decisions for the `gowag-app` — a modern, scalable, and modular web dashboard built with **Next.js**, **TypeScript**, **Tailwind CSS**, **Radix UI**, and **WebSocket support**.
+
+---
+
+## 🧱 Project Architecture Overview
+
+> **"You are building a platform that is maintainable, performant, reactive, and role-aware."**
+
+All contributors must follow the standards outlined in this file to ensure long-term stability, clean code practices, and a consistent user experience.
+
+---
+
+## 1. 📦 Project Structure & Feature-Based Routing
+
+The application follows a **feature-first architecture** using the **Next.js App Router** (`/app/` directory). Each main feature is isolated with its own components and logic.
+
+```
+gowag-app/
+├── public/
+├── src/
+│   ├── api/
+│   ├── app/
+│   │   ├── auth/                     # Login/Register pages
+│   │   ├── dashboard/                # All main dashboard features
+│   │   │   ├── (feature)/components/ # Feature-specific components
+│   │   │   └── components/           # Shared dashboard components
+│   │   └── layout.tsx                # Root layout
+│   ├── components/
+│   │   └── ui/                       # Reusable UI components (shadcn + Radix UI)
+│   ├── context/                      # Global React Context
+│   ├── hooks/                        # Custom hooks
+│   ├── lib/                          # Utils, config, singletons
+│   ├── middleware/                   # Next.js middleware (auth, roles)
+│   ├── providers/                    # App-wide context providers
+│   └── services/                     # Business logic and API abstractions
+├── tailwind.config.ts
+└── tsconfig.json
+```
+
+---
+
+## 2. 🧱 Design Patterns & Engineering Standards
+
+- Use **Singleton pattern** for:
+  - WebSocket connections
+  - API clients (e.g., axios instance)
+  - Auth/session providers
+  - Shared utilities
+
+- Apply:
+  - **SOLID** principles
+  - **DRY** (Don't Repeat Yourself)
+  - **Separation of Concerns**
+
+- Avoid:
+  - Logic in UI components
+  - Duplicate logic or fetches
+  - Stateful services outside singleton scope
+
+---
+
+## 3. 🎨 UI/UX Guidelines
+
+> **"Interfaces must feel alive, responsive, and accessible."**
+
+- Use **Radix UI** + **shadcn/ui** as the base for all components.
+- All UI components must:
+  - Be **accessible (WAI-ARIA compliant)**
+  - Be **animated** (prefer `framer-motion` and Radix transitions)
+  - Provide **interactive feedback** (loading states, transitions, hover/focus effects)
+- Follow Tailwind's design system and apply design tokens for consistency.
+- Must Be Responsive Design And Layout
+
+### Components Directory Structure
+
+```
+components/
+├── ui/                    # Global reusable components
+├── layout/                # Header, sidebar, shell
+└── feedback/Toast.tsx     # Example: toast notifications
+```
+
+---
+
+## 4. 📡 WebSocket (Realtime) Integration Rules
+
+- WebSocket clients must be singleton (`lib/socket.ts`)
+- Expose client APIs via hook: `hooks/useSocket.ts`
+- All events are defined in `services/socket-events.ts`
+
+### WebSocket Rules
+
+- Namespaces (e.g., `/notifications`, `/sessions`) must be defined explicitly.
+- Authenticate socket connections using secure token headers.
+- All emissions must be handled through `services/`, not UI.
+
+---
+
+## 5. 🔐 Authentication, Authorization, and Roles
+
+- Auth is handled via **Firebase Auth**.
+- Route protection uses:
+  - Middleware (`src/middleware/`)
+
+### Role-based Access (RBAC)
+
+- Users must be assigned a role:  
+  `admin`, `moderator`, `user`, `guest`, etc.
+
+- Define permission constants in:  
+  `lib/roles.ts`
+
+- Protect UI components conditionally:
+  ```ts
+  if (user.role !== 'admin') return null
+  ```
+
+---
+
+## 6. 💰 Subscription Tiers
+
+Tier-based feature access must be enforced both in UI and server logic.
+
+### Supported Plans:
+- `free`
+- `basic`
+- `pro`
+- `enterprise`
+
+### Rules:
+
+- Store subscription metadata in session or user profile.
+- All plan-based restrictions must be centralized in:
+  - `lib/subscription.ts`
+  - `services/subscription.ts`
+- Plan-specific UI components must be gated:
+  ```ts
+  if (!hasAccess(user.plan, 'campaigns')) return <UpgradePrompt />
+  ```
+
+---
+
+## 7. 🧼 Code Quality & Standards
+
+- All code must follow:
+  - **TypeScript strict mode**
+  - **Prettier** formatting
+  - **ESLint** rules
+- Commits must follow **Conventional Commit format**:
+  - `feat:`, `fix:`, `refactor:`, `chore:`, etc.
+
+### Prohibited:
+- `any`, `@ts-ignore` (except with justifiable comments)
+- Fetching directly inside UI
+- Storing tokens in `localStorage`
+
+---
+
+## 8. ⚙️ API & Service Rules
+
+- All API interactions must go through `services/`
+- Use singleton API clients (`lib/http.ts`)
+- Validate all input before request
+- Use retry strategies or error handlers where applicable
+
+---
+
+## 9. 🔁 State & Hooks
+
+- All context should be organized into the context/ directory
+- All reusable logic should be abstracted into hooks (`hooks/`)
+
+---
+
+## 10. 🧪 Testing Strategy
+
+- Unit tests: **Jest**
+- E2E tests: **Cypress**
+- Every business-critical module should have at least:
+  - One unit test
+  - One integration test if applicable
+
+---
+
+## 11. 🚀 Deployment, CI/CD
+
+- Deployment: **Vercel**
+- All deployments must pass:
+  - Lint checks
+  - Type checks
+  - Test suite
+- No direct pushes to `main` or `production` allowed.
+
+---
+
+## 12. 📚 Documentation
+
+- Document all major modules and decisions.
+- Add/update:
+  - `README.md` for usage
+- Use JSDoc for custom functions and services.
+
+---
+
+## 13. 📈 Observability
+
+- All errors and critical events must be logged:
+  - `lib/logger.ts`
+- Use tools like **Sentry**, **LogRocket**, **Vercel Analytics**, **ChartJS**, ETC.
+
+---
+
+## ✅ Example Feature Directory: `groups`
+
+```
+src/app/dashboard/groups/
+├── page.tsx
+├── layout.tsx
+└── components/
+    ├── GroupTable.tsx
+    ├── GroupCard.tsx
+    └── GroupForm.tsx
+```
+
+---
+
+## 🚨 Final Notes
+
+
+> This file governs the engineering structure and best practices of gowag-app

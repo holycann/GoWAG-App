@@ -1,7 +1,6 @@
 "use client"
-import { useState } from "react"
-import type React from "react"
 
+import React, { useState } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -17,133 +16,229 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { CalendarPlus, Clock, User, MessageCircle } from "lucide-react"
-// You might need a date picker component. shadcn/ui has one.
-// For simplicity, using text input for date/time.
-// import { Calendar } from "@/components/ui/calendar"
-// import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-// import { format } from "date-fns"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
-interface ScheduleMessageDialogProps {
-  triggerButton?: React.ReactNode
-  onSchedule?: (data: { recipient: string; message: string; scheduleTime: string }) => void // Placeholder
+export interface ScheduleMessageFormData {
+  subject: string
+  message: string
+  recipient: string
+  recipientGroup?: string
+  scheduleTime: string
+  recurring?: string | null
 }
 
-export function ScheduleMessageDialog({ triggerButton, onSchedule }: ScheduleMessageDialogProps) {
-  const [open, setOpen] = useState(false)
-  const [recipient, setRecipient] = useState("")
-  const [message, setMessage] = useState("")
-  const [scheduleTime, setScheduleTime] = useState("") // e.g., "2025-06-25T10:30"
-  const [isScheduling, setIsScheduling] = useState(false)
+interface ScheduleMessageDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onSchedule: (data: ScheduleMessageFormData) => Promise<void>
+  recipientGroups?: { id: string; name: string }[]
+  trigger?: React.ReactNode
+}
 
-  const handleSubmit = async () => {
-    if (!recipient || !message || !scheduleTime) {
-      alert("Please fill all fields.") // Simple validation
+export function ScheduleMessageDialog({
+  open,
+  onOpenChange,
+  onSchedule,
+  recipientGroups = [],
+  trigger,
+}: ScheduleMessageDialogProps) {
+  const [formData, setFormData] = useState<ScheduleMessageFormData>({
+    subject: "",
+    message: "",
+    recipient: "",
+    recipientGroup: "",
+    scheduleTime: "",
+    recurring: null,
+  })
+  
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [useGroup, setUseGroup] = useState(false)
+
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    const { id, value } = e.target
+    setFormData((prev) => ({ ...prev, [id]: value }))
+  }
+
+  const handleSelectChange = (field: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }))
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    // Simple validation
+    if (!formData.subject || !formData.message || !formData.scheduleTime) {
+      alert("Please fill all required fields.")
       return
     }
-    setIsScheduling(true)
-    // --- Placeholder for actual scheduling logic ---
-    console.log("Scheduling message:", { recipient, message, scheduleTime })
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    onSchedule?.({ recipient, message, scheduleTime }) // Callback if provided
-    // --- End of placeholder ---
-    setIsScheduling(false)
-    setOpen(false) // Close dialog on success
-    // Reset form
-    setRecipient("")
-    setMessage("")
-    setScheduleTime("")
+    
+    if (!useGroup && !formData.recipient) {
+      alert("Please enter a recipient or select a group.")
+      return
+    }
+    
+    if (useGroup && !formData.recipientGroup) {
+      alert("Please select a recipient group.")
+      return
+    }
+    
+    setIsSubmitting(true)
+    
+    try {
+      await onSchedule(formData)
+      setFormData({
+        subject: "",
+        message: "",
+        recipient: "",
+        recipientGroup: "",
+        scheduleTime: "",
+        recurring: null,
+      })
+      onOpenChange(false)
+    } catch (error) {
+      console.error("Error scheduling message:", error)
+      alert("Failed to schedule message. Please try again.")
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {triggerButton || (
-          <Button className="bg-brandDarkBlue text-white hover:bg-opacity-90 group">
-            <CalendarPlus className="mr-2 h-5 w-5 transition-transform duration-200 group-hover:scale-110" />
-            Schedule New Message
-          </Button>
-        )}
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-lg rounded-xl">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle className="flex items-center text-brandDarkBlue">
+          <DialogTitle className="flex items-center">
             <CalendarPlus className="mr-2 h-6 w-6" /> Schedule a New Message
           </DialogTitle>
           <DialogDescription>
             Compose your message and set a date and time for it to be sent automatically.
           </DialogDescription>
         </DialogHeader>
+        <form onSubmit={handleSubmit}>
         <div className="grid gap-6 py-4">
           <div className="space-y-2">
-            <Label htmlFor="schedule-recipient" className="text-gray-700 flex items-center">
-              <User className="mr-2 h-4 w-4 text-gray-500" /> Recipient Number
-            </Label>
+              <Label htmlFor="subject">Subject</Label>
+              <Input
+                id="subject"
+                placeholder="Message subject"
+                value={formData.subject}
+                onChange={handleChange}
+                required
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <Label>Recipient</Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setUseGroup(!useGroup)}
+                  className="text-xs"
+                >
+                  {useGroup ? "Enter Individual" : "Use Group"}
+                </Button>
+              </div>
+              
+              {useGroup ? (
+                <Select
+                  value={formData.recipientGroup}
+                  onValueChange={(value) => handleSelectChange("recipientGroup", value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a group" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {recipientGroups.map((group) => (
+                      <SelectItem key={group.id} value={group.id}>
+                        {group.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex items-center">
+                    <User className="mr-2 h-4 w-4 text-gray-500" />
             <Input
-              id="schedule-recipient"
+                      id="recipient"
               placeholder="e.g., +12345678900"
-              value={recipient}
-              onChange={(e) => setRecipient(e.target.value)}
-              className="focus:ring-brandDarkBlue focus:border-brandDarkBlue"
+                      value={formData.recipient}
+                      onChange={handleChange}
             />
           </div>
+                  <p className="text-xs text-muted-foreground">
+                    Include country code with + prefix
+                  </p>
+                </div>
+              )}
+            </div>
+            
           <div className="space-y-2">
-            <Label htmlFor="schedule-message" className="text-gray-700 flex items-center">
+              <Label htmlFor="message" className="flex items-center">
               <MessageCircle className="mr-2 h-4 w-4 text-gray-500" /> Message
             </Label>
             <Textarea
-              id="schedule-message"
+                id="message"
               placeholder="Type your message here..."
               rows={4}
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              className="focus:ring-brandDarkBlue focus:border-brandDarkBlue"
+                value={formData.message}
+                onChange={handleChange}
+                required
             />
           </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="schedule-time" className="text-gray-700 flex items-center">
+                <Label htmlFor="scheduleTime" className="flex items-center">
               <Clock className="mr-2 h-4 w-4 text-gray-500" /> Schedule Date & Time
             </Label>
             <Input
-              id="schedule-time"
-              type="datetime-local" // Basic HTML5 date-time picker
-              value={scheduleTime}
-              onChange={(e) => setScheduleTime(e.target.value)}
-              className="focus:ring-brandDarkBlue focus:border-brandDarkBlue"
-            />
-            {/* Example with shadcn Calendar (more complex setup needed)
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="w-full justify-start text-left font-normal">
-                  <CalendarDays className="mr-2 h-4 w-4" />
-                  {scheduleTime ? format(new Date(scheduleTime), "PPP HH:mm") : <span>Pick a date & time</span>}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar mode="single" selected={scheduleTime ? new Date(scheduleTime) : undefined} onSelect={(date) => setScheduleTime(date?.toISOString() || "")} initialFocus />
-                <Input type="time" className="mt-2" onChange={(e) => { ... }} />
-              </PopoverContent>
-            </Popover>
-            */}
+                  id="scheduleTime"
+                  type="datetime-local"
+                  value={formData.scheduleTime}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="recurring">Recurring</Label>
+                <Select
+                  value={formData.recurring || "none"}
+                  onValueChange={(value) => 
+                    handleSelectChange("recurring", value === "none" ? null : value)
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Not recurring" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Not recurring</SelectItem>
+                    <SelectItem value="daily">Daily</SelectItem>
+                    <SelectItem value="weekly">Weekly</SelectItem>
+                    <SelectItem value="monthly">Monthly</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
           </div>
         </div>
         <DialogFooter>
-          <DialogClose asChild>
-            <Button type="button" variant="outline" className="hover:bg-slate-100">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-          </DialogClose>
-          <Button
-            type="button"
-            onClick={handleSubmit}
-            className="bg-brandDarkBlue text-white hover:bg-opacity-90"
-            disabled={isScheduling}
-          >
-            {isScheduling ? (
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? (
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
             ) : null}
-            {isScheduling ? "Scheduling..." : "Schedule Message"}
+              {isSubmitting ? "Scheduling..." : "Schedule Message"}
           </Button>
         </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   )
