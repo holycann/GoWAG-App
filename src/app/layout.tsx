@@ -1,7 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
-import { AuthProvider } from '@/context/auth-context'
-import { ThemeProvider } from '@/providers/theme-provider'
+import { AppProviders } from '@/providers/app-providers'
 
 export const metadata: Metadata = {
   title: 'GoWAG - WhatsApp Gateway',
@@ -16,11 +15,9 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <AuthProvider>
-            {children}
-          </AuthProvider>
-        </ThemeProvider>
+        <AppProviders>
+          {children}
+        </AppProviders>
       </body>
     </html>
   )

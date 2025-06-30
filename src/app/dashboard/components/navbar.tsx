@@ -3,6 +3,8 @@ import { LogOut, Menu, ShieldAlert, Bell, Search } from "lucide-react"
 import { useRouter } from "next/navigation" // For App Router
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { NetworkStatus } from "@/components/ui/network-status"
+import { NetworkHealthIndicator } from "@/components/ui/network-health-indicator"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -86,6 +88,13 @@ export function Navbar() {
         </div>
 
         <div className="ml-auto flex items-center gap-3">
+          <div className="hidden md:flex">
+            <NetworkStatus variant="badge" />
+          </div>
+          <div className="hidden lg:flex">
+            <NetworkHealthIndicator size="sm" showLatency={true} />
+          </div>
+          
           <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 relative">
             <Bell className="h-5 w-5" />
             <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-primary animate-pulse" />

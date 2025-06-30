@@ -1,9 +1,8 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import AuthService, { User } from '../services/auth-service';
-import { initializeFirebase } from '../lib/firebase';
+import React, { createContext, useContext, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import authService, { User } from "@/services/auth-service";
 
 interface AuthContextType {
   user: User | null;
@@ -26,22 +25,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const initialize = async () => {
       try {
-        const firebaseApp = initializeFirebase();
-        AuthService.initializeAuth(firebaseApp);
-        
-        // Check if user is already authenticated
-        if (AuthService.isAuthenticated()) {
-          const currentUser = await AuthService.getCurrentUser();
-          if (currentUser) {
-            setUser(currentUser);
+        // Check if user is authenticated
+        if (authService.isAuthenticated()) {
+          // Get current user data
+          const userData = await authService.getCurrentUser();
+          if (userData) {
+            setUser(userData);
           } else {
-            await AuthService.logout();
-            router.push('/auth/login');
+            // If token exists but no user data, try to refresh token
+            const newToken = await authService.refreshToken();
+            if (newToken) {
+              const userData = await authService.getCurrentUser();
+              if (userData) {
+                setUser(userData);
+              } else {
+                // If still no user data after token refresh, logout
+                await authService.logout();
+              }
+            }
           }
         }
       } catch (err) {
-        console.error('Error initializing auth:', err);
-        setError('Failed to initialize authentication');
+        console.error("Auth initialization error:", err);
+        // Handle initialization errors
+        setError("Failed to initialize authentication");
       } finally {
         setLoading(false);
       }
@@ -54,28 +61,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(true);
     setError(null);
     try {
-      const loggedInUser = await AuthService.login({ email, password });
-      setUser(loggedInUser);
-      router.push('/dashboard');
+      const userData = await authService.login({ email, password });
+      setUser(userData);
+      router.push("/dashboard");
     } catch (err: any) {
-      console.error('Login error:', err);
-      setError(err.message || 'Failed to login');
+      console.error("Login error:", err);
+      setError(err.message || "Failed to login");
       throw err;
     } finally {
       setLoading(false);
     }
   };
 
-  const register = async (email: string, password: string, name?: string, phoneNumber?: string, profilePicture?: string) => {
+  const register = async (email: string, password: string, fullname?: string, phoneNumber?: string, username?: string) => {
     setLoading(true);
     setError(null);
     try {
-      const newUser = await AuthService.register({ email, password }, name, phoneNumber, profilePicture);
-      setUser(newUser);
-      router.push('/dashboard');
+      const userData = await authService.register(
+        { email, password },
+        username,
+        fullname,
+        phoneNumber
+      );
+      setUser(userData);
+      router.push("/dashboard");
     } catch (err: any) {
-      console.error('Registration error:', err);
-      setError(err.message || 'Failed to register');
+      console.error("Registration error:", err);
+      setError(err.message || "Failed to register");
       throw err;
     } finally {
       setLoading(false);
@@ -86,12 +98,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(true);
     setError(null);
     try {
-      await AuthService.logout();
+      await authService.logout();
       setUser(null);
-      router.push('/auth/login');
+      router.push("/auth/login");
     } catch (err: any) {
-      console.error('Logout error:', err);
-      setError(err.message || 'Failed to logout');
+      console.error("Logout error:", err);
+      setError(err.message || "Failed to logout");
       throw err;
     } finally {
       setLoading(false);
@@ -99,11 +111,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const isAuthenticated = () => {
-    return AuthService.isAuthenticated();
+    return authService.isAuthenticated();
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, error, login, register, logout, isAuthenticated: isAuthenticated }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        error,
+        login,
+        register,
+        logout,
+        isAuthenticated,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -112,7 +134,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 };

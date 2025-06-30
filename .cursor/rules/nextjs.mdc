@@ -74,7 +74,7 @@ gowag-app/
   - Be **animated** (prefer `framer-motion` and Radix transitions)
   - Provide **interactive feedback** (loading states, transitions, hover/focus effects)
 - Follow Tailwind's design system and apply design tokens for consistency.
-- Must Be Responsive Design And Layout
+- Must Be Responsive Design
 
 ### Components Directory Structure
 
@@ -172,8 +172,9 @@ Tier-based feature access must be enforced both in UI and server logic.
 
 ## 9. 🔁 State & Hooks
 
-- All context should be organized into the context/ directory
+- Place all React context logic inside the (`context/`) directory to ensure global state is centralized and maintainable
 - All reusable logic should be abstracted into hooks (`hooks/`)
+- All app-wide context providers should be declared inside the (`providers/`) directory
 
 ---
 

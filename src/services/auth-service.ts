@@ -1,15 +1,9 @@
-import apiClient from "../api/api";
 import { FirebaseApp } from "firebase/app";
-import {
-  Auth,
-  getAuth,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signOut,
-} from "firebase/auth";
-import { serialize } from "cookie";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, User as FirebaseUser } from "firebase/auth";
+import { getFirebaseApp } from "@/lib/firebase";
+import { apiClient, tokenManager } from "@/api/api";
 
-// Types
+// Authentication interfaces
 export interface AuthCredentials {
   email: string;
   password: string;
@@ -25,55 +19,62 @@ export interface User {
   profilePicture?: string;
 }
 
-// Initialize Firebase auth
-let auth: Auth | null = null;
+// Define authentication service as a singleton
+class AuthService {
+  private static instance: AuthService;
+  private app: FirebaseApp | null = null;
+  
+  private constructor() {
+    // Private constructor to prevent direct construction calls with 'new'
+    this.app = getFirebaseApp();
+  }
+  
+  public static getInstance(): AuthService {
+    if (!AuthService.instance) {
+      AuthService.instance = new AuthService();
+    }
+    return AuthService.instance;
+  }
 
-const initializeAuth = (app: FirebaseApp) => {
-  auth = getAuth(app);
-  return auth;
-};
+  // Initialize Firebase Auth in the service
+  private initializeAuth(app: FirebaseApp) {
+    if (!app) return null;
+    return getAuth(app);
+  }
 
-const AuthService = {
-  initializeAuth,
-
-  // Login with Firebase
   async login(credentials: AuthCredentials): Promise<User> {
-    if (!auth) throw new Error("Firebase auth not initialized");
+    try {
+      const auth = this.initializeAuth(this.app!);
+      if (!auth) throw new Error("Auth not initialized");
+      
+      const { email, password } = credentials;
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const firebaseUser = userCredential.user;
+      
+      // Get token from Firebase user
+      const token = await firebaseUser.getIdToken();
+      
+      // Store tokens in TokenManager instead of localStorage
+      tokenManager.setAuthToken(token);
+      
+      // You might want to store a refresh token as well if your backend provides one
+      // For now, we'll use the Firebase refresh token mechanism
+      
+      // Fetch user profile from your backend
+      const response = await apiClient.get(`/users/profile`);
+      const user: User = {
+        id: firebaseUser.uid,
+        email: firebaseUser.email!,
+        ...response.data
+      };
+      
+      return user;
+    } catch (error) {
+      console.error("Login error:", error);
+      throw error;
+    }
+  }
 
-    const { email, password } = credentials;
-    const userCredential = await signInWithEmailAndPassword(
-      auth,
-      email,
-      password
-    );
-
-    // Get token for backend API calls
-    const token = await userCredential.user.getIdToken();
-
-    const serializedToken = serialize("token", token, {
-      expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30),
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-    });
-
-    document.cookie = serializedToken;
-
-    const serializedUser = serialize("userUid", userCredential.user.uid, {
-      expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30),
-      // secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-    });
-
-    document.cookie = serializedUser;
-
-    apiClient.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-
-    // Get user profile from backend
-    const response = await apiClient.get("/users/" + userCredential.user.uid);
-    return response.data;
-  },
-
-  // Register with Firebase
   async register(
     credentials: AuthCredentials,
     username?: string,
@@ -81,92 +82,105 @@ const AuthService = {
     phoneNumber?: string,
     profilePicture?: string
   ): Promise<User> {
-    if (!auth) throw new Error("Firebase auth not initialized");
-
-    const { email, password } = credentials;
-    const userCredential = await createUserWithEmailAndPassword(
-      auth,
-      email,
-      password
-    );
-
-    // Get token for backend API calls
-    const token = await userCredential.user.getIdToken();
-
-    const serializedToken = serialize("token", token, {
-      expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30),
-      // secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-    });
-
-    document.cookie = serializedToken;
-
-    apiClient.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-
-    // Create user profile in backend
-    const userData = {
-      id: userCredential.user.uid,
-      email,
-      username,
-      fullname,
-      phoneNumber,
-      profilePicture,
-      role: "user",
-    };
-
-    const response = await apiClient.post("/users/profile", userData);
-    return response.data;
-  },
-
-  // Logout
-  async logout() {
-    if (!auth) throw new Error("Firebase auth not initialized");
-
-    await signOut(auth);
-    document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-    document.cookie = "userUid=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-  },
-
-  // Check if user is authenticated
-  isAuthenticated(): boolean {
-    return !!document.cookie.split("; ").find((row) => row.startsWith("token="));
-  },
-
-  // Get current user from backend
-  async getCurrentUser(): Promise<User | null> {
-    if (!this.isAuthenticated()) return null;
-
-    const token = document.cookie.split("; ").find((row) => row.startsWith("token="))?.split("=")[1];
-    const userUid = document.cookie.split("; ").find((row) => row.startsWith("userUid="))?.split("=")[1];
-
-    if (!token || !userUid) return null;  
-
     try {
-      const response = await apiClient.get("/users/" + userUid, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      const auth = this.initializeAuth(this.app!);
+      if (!auth) throw new Error("Auth not initialized");
+      
+      const { email, password } = credentials;
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const firebaseUser = userCredential.user;
+      
+      // Get token from Firebase user
+      const token = await firebaseUser.getIdToken();
+      
+      // Store tokens in TokenManager instead of localStorage
+      tokenManager.setAuthToken(token);
+      
+      // Create user profile in your backend
+      const response = await apiClient.post(`/users/profile`, {
+        userId: firebaseUser.uid,
+        email,
+        username,
+        fullname,
+        phoneNumber,
+        profilePicture
       });
-      return response.data;
+      
+      const user: User = {
+        id: firebaseUser.uid,
+        email: firebaseUser.email!,
+        username,
+        fullname,
+        phoneNumber,
+        profilePicture
+      };
+      
+      return user;
     } catch (error) {
-      console.error("Error getting current user:", error);
+      console.error("Registration error:", error);
+      throw error;
+    }
+  }
+
+  async logout() {
+    try {
+      const auth = this.initializeAuth(this.app!);
+      if (!auth) throw new Error("Auth not initialized");
+      
+      await signOut(auth);
+      
+      // Clear tokens from TokenManager
+      tokenManager.clearTokens();
+      
+    } catch (error) {
+      console.error("Logout error:", error);
+      throw error;
+    }
+  }
+
+  isAuthenticated(): boolean {
+    // Check if there's a valid token in TokenManager
+    return !!tokenManager.getAuthToken();
+  }
+
+  async getCurrentUser(): Promise<User | null> {
+    try {
+      const auth = this.initializeAuth(this.app!);
+      if (!auth || !auth.currentUser) return null;
+      
+      const firebaseUser = auth.currentUser;
+      
+      // Fetch user profile from your backend
+      const response = await apiClient.get(`/users/profile`);
+      
+      const user: User = {
+        id: firebaseUser.uid,
+        email: firebaseUser.email!,
+        ...response.data
+      };
+      
+      return user;
+    } catch (error) {
+      console.error("Get current user error:", error);
       return null;
     }
-  },
+  }
 
-  // Refresh token
   async refreshToken(): Promise<string | null> {
-    if (!auth || !auth.currentUser) return null;
-
     try {
+      const auth = this.initializeAuth(this.app!);
+      if (!auth || !auth.currentUser) return null;
+      
       const token = await auth.currentUser.getIdToken(true);
-      document.cookie = "token=" + token;
+      tokenManager.setAuthToken(token);
       return token;
     } catch (error) {
-      console.error("Error refreshing token:", error);
+      console.error("Token refresh error:", error);
       return null;
     }
-  },
-};
+  }
+}
 
-export default AuthService;
+// Export singleton instance
+const authService = AuthService.getInstance();
+export default authService;

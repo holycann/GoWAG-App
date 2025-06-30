@@ -115,6 +115,12 @@ const systemItems = [
     description: "WhatsApp connection status",
   },
   {
+    href: "/dashboard/network-status",
+    label: "Network Status",
+    icon: Activity,
+    description: "Monitor connection quality",
+  },
+  {
     href: "/dashboard/message-logs",
     label: "Message Logs",
     icon: History,
